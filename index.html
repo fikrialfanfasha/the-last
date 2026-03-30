@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>session_log :: personal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;1,300;1,400&display=swap"
+        rel="stylesheet">
+
+    <style>
+        :root {
+            --bg: #080c08;
+            --bg2: #0c110c;
+            --green: #4af080;
+            --green-dim: #2a8a42;
+            --green-faint: rgba(74, 240, 128, 0.08);
+            --amber: #e8b84b;
+            --amber-dim: rgba(232, 184, 75, 0.6);
+            --white: #d4e8d4;
+            --muted: #4a6b4a;
+            --error: #e05050;
+            --cursor-color: #4af080;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body,
+        html {
+            width: 100%;
+            height: 100%;
+            background: var(--bg);
+            color: var(--green);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            overflow: hidden;
+            cursor: none;
+        }
+
+        /* ── SCANLINES ── */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: repeating-linear-gradient(0deg,
+                    transparent,
+                    transparent 2px,
+                    rgba(0, 0, 0, 0.08) 2px,
+                    rgba(0, 0, 0, 0.08) 4px);
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        /* ── CRT VIGNETTE ── */
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(ellipse 80% 80% at 50% 50%,
+                    transparent 40%, rgba(0, 0, 0, 0.75) 100%);
+            pointer-events: none;
+            z-index: 99;
+        }
+
+        /* ── PHOSPHOR GLOW FLICKER ── */
+        #screen {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            padding: 0;
+            animation: screenFlicker 8s ease-in-out infinite;
+        }
+
+        @keyframes screenFlicker {
+
+            0%,
+            100% {
+                filter: brightness(1) contrast(1);
+            }
+
+            92% {
+                filter: brightness(1) contrast(1);
+            }
+
+            93% {
+                filter: brightness(1.04) contrast(1.02);
+            }
+
+            94% {
+                filter: brightness(0.97) contrast(0.99);
+            }
+
+            95% {
+                filter: brightness(1) contrast(1);
+            }
+        }
+
+        /* ── TITLE BAR ── */
+        #titlebar {
+            background: var(--bg2);
+            border-bottom: 1px solid var(--green-dim);
+            padding: 8px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-shrink: 0;
+        }
+
+        .tb-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--green-dim);
+            opacity: 0.6;
+        }
+
+        .tb-title {
+            font-size: 11px;
+            color: var(--muted);
+            letter-spacing: 2px;
+            margin-left: 8px;
+        }
+
+        .tb-time {
+            margin-left: auto;
+            font-size: 11px;
+            color: var(--muted);
+            letter-spacing: 1px;
+        }
+
+        /* ── TERMINAL BODY ── */
+        #terminal {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 24px 28px 100px;
+            scroll-behavior: smooth;
+        }
+
+        #terminal::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        #terminal::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        #terminal::-webkit-scrollbar-thumb {
+            background: var(--green-dim);
+            border-radius: 2px;
+        }
+
+        /* ── LINES ── */
+        .line {
+            display: block;
+            line-height: 1.7;
+            white-space: pre-wrap;
+            word-break: break-word;
+            opacity: 0;
+            animation: fadeIn 0.1s ease forwards;
+        }
+
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+            }
+        }
+
+        .line.prompt {
+            color: var(--green);
+        }
+
+        .line.output {
+            color: var(--white);
+            padding-left: 0;
+        }
+
+        .line.comment {
+            color: var(--muted);
+            font-style: italic;
+        }
+
+        .line.amber {
+            color: var(--amber);
+        }
+
+        .line.error {
+            color: var(--error);
+        }
+
+        .line.blank {
+            height: 10px;
+            opacity: 1;
+        }
+
+        .line.divider {
+            color: var(--green-dim);
+            opacity: 1;
+        }
+
+        .line.special {
+            color: var(--amber);
+            text-shadow: 0 0 12px rgba(232, 184, 75, 0.5);
+            font-weight: 400;
+        }
+
+        .line.poem {
+            color: var(--white);
+            padding-left: 20px;
+            border-left: 2px solid var(--green-dim);
+            margin: 2px 0;
+            font-style: italic;
+            text-shadow: 0 0 8px rgba(212, 232, 212, 0.15);
+        }
+
+        .line.german {
+            color: var(--amber);
+            padding-left: 20px;
+            font-style: italic;
+            text-shadow: 0 0 10px rgba(232, 184, 75, 0.3);
+            font-size: 15px;
+        }
+
+        .line.big {
+            font-size: 18px;
+            color: var(--green);
+            text-shadow: 0 0 20px rgba(74, 240, 128, 0.4);
+            letter-spacing: 1px;
+        }
+
+        /* prompt prefix */
+        .p-prefix {
+            color: var(--green-dim);
+        }
+
+        .p-cmd {
+            color: var(--green);
+        }
+
+        .p-arg {
+            color: var(--amber);
+        }
+
+        .p-flag {
+            color: #7ab87a;
+        }
+
+        /* highlight on special words */
+        .hl {
+            color: var(--amber);
+            font-style: normal;
+        }
+
+        /* ── CURSOR ── */
+        #custom-cursor {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 14px;
+            height: 18px;
+            background: var(--cursor-color);
+            opacity: 0.85;
+            pointer-events: none;
+            z-index: 200;
+            animation: cursorBlink 1s step-end infinite;
+            mix-blend-mode: screen;
+            transform: translate(-2px, -14px);
+        }
+
+        @keyframes cursorBlink {
+            50% {
+                opacity: 0;
+            }
+        }
+
+        /* ── INPUT BAR ── */
+        #input-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--bg2);
+            border-top: 1px solid var(--green-dim);
+            padding: 12px 28px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 50;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        #input-bar.visible {
+            opacity: 1;
+        }
+
+        #input-prefix {
+            color: var(--green-dim);
+            white-space: nowrap;
+            font-size: 13px;
+        }
+
+        #user-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: var(--green);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            caret-color: var(--cursor-color);
+        }
+
+        #user-input::placeholder {
+            color: var(--muted);
+        }
+
+        /* ── PROGRESS BAR ── */
+        .progress-wrap {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding-left: 0;
+        }
+
+        .progress-bar {
+            display: inline-block;
+            height: 8px;
+            border-radius: 2px;
+            background: var(--green-dim);
+            animation: growBar 1.2s ease forwards;
+        }
+
+        @keyframes growBar {
+            from {
+                width: 0;
+            }
+        }
+
+        .progress-label {
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        /* ── BOOT SCREEN ── */
+        #boot-screen {
+            position: fixed;
+            inset: 0;
+            background: var(--bg);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 300;
+            transition: opacity 1s ease;
+        }
+
+        #boot-screen.hide {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .boot-logo {
+            font-size: 11px;
+            color: var(--green-dim);
+            letter-spacing: 3px;
+            text-align: center;
+            margin-bottom: 40px;
+            line-height: 1.6;
+            text-shadow: 0 0 20px rgba(74, 240, 128, 0.2);
+        }
+
+        .boot-logo span {
+            color: var(--green);
+            font-size: 13px;
+            display: block;
+            letter-spacing: 5px;
+            margin-bottom: 6px;
+        }
+
+        .boot-bar-wrap {
+            width: 200px;
+        }
+
+        .boot-bar-bg {
+            width: 100%;
+            height: 2px;
+            background: var(--green-dim);
+            border-radius: 1px;
+            overflow: hidden;
+        }
+
+        .boot-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: var(--green);
+            animation: bootLoad 2s ease forwards;
+            box-shadow: 0 0 8px rgba(74, 240, 128, 0.6);
+        }
+
+        @keyframes bootLoad {
+            to {
+                width: 100%;
+            }
+        }
+
+        .boot-status {
+            font-size: 10px;
+            color: var(--muted);
+            letter-spacing: 2px;
+            margin-top: 12px;
+            animation: statusCycle 2s ease forwards;
+        }
+
+        @keyframes statusCycle {
+            0% {
+                opacity: 1;
+            }
+
+            80% {
+                opacity: 1;
+            }
+
+            100% {
+                opacity: 0;
+            }
+        }
+
+        /* ── EASTER EGG OVERLAY ── */
+        #egg-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 400;
+            background: #07040a;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.8s ease;
+            padding: 40px 30px;
+            text-align: center;
+        }
+
+        #egg-overlay.show {
+            opacity: 1;
+            pointer-events: all;
+            cursor: pointer;
+        }
+
+        #screen.glitch {
+            animation: glitchScreen 0.5s steps(2) forwards;
+        }
+
+        @keyframes glitchScreen {
+            0% {
+                filter: brightness(1) hue-rotate(0deg);
+                transform: translateX(0);
+            }
+
+            20% {
+                filter: brightness(2) hue-rotate(90deg);
+                transform: translateX(-4px);
+            }
+
+            40% {
+                filter: brightness(0.5) hue-rotate(-90deg);
+                transform: translateX(4px);
+            }
+
+            60% {
+                filter: brightness(1.5) hue-rotate(40deg);
+                transform: translateX(-2px);
+            }
+
+            80% {
+                filter: brightness(0.8) hue-rotate(-20deg);
+                transform: translateX(2px);
+            }
+
+            100% {
+                filter: brightness(1) hue-rotate(0deg);
+                transform: translateX(0);
+            }
+        }
+
+        .egg-line {
+            font-family: 'JetBrains Mono', monospace;
+            line-height: 2.1;
+            opacity: 0;
+            animation: eggFadeIn 0.9s ease forwards;
+        }
+
+        @keyframes eggFadeIn {
+            to {
+                opacity: 1;
+            }
+        }
+
+        .egg-comment {
+            color: var(--muted);
+            font-size: 12px;
+            letter-spacing: 1px;
+        }
+
+        .egg-amber {
+            color: var(--amber);
+            font-size: 15px;
+            text-shadow: 0 0 16px rgba(232, 184, 75, 0.5);
+        }
+
+        .egg-warm {
+            color: #f0c88a;
+            font-size: 16px;
+            font-style: italic;
+            text-shadow: 0 0 20px rgba(240, 200, 138, 0.4);
+        }
+
+        .egg-big {
+            color: var(--amber);
+            font-size: 22px;
+            letter-spacing: 2px;
+            text-shadow: 0 0 20px rgba(232, 184, 75, 0.7), 0 0 50px rgba(232, 184, 75, 0.3);
+            margin: 8px 0;
+        }
+
+        .egg-small {
+            color: var(--muted);
+            font-size: 11px;
+            letter-spacing: 3px;
+            margin-top: 40px;
+        }
+
+        .egg-divider {
+            color: var(--amber);
+            opacity: 0.25;
+            font-size: 12px;
+            margin: 4px 0;
+        }
+
+        /* ── FINAL MESSAGE GLOW ── */
+        .glow-line {
+            text-shadow:
+                0 0 10px rgba(74, 240, 128, 0.6),
+                0 0 30px rgba(74, 240, 128, 0.3),
+                0 0 60px rgba(74, 240, 128, 0.1);
+        }
+
+        /* ── NOISE OVERLAY ── */
+        #noise {
+            position: fixed;
+            inset: 0;
+            z-index: 98;
+            pointer-events: none;
+            opacity: 0.025;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+            background-size: 128px;
+            animation: noiseAnim 0.5s steps(2) infinite;
+        }
+
+        @keyframes noiseAnim {
+            to {
+                background-position: 64px 64px;
+            }
+        }
+
+        @media (max-width: 600px) {
+            body {
+                font-size: 12px;
+            }
+
+            #terminal {
+                padding: 16px 16px 100px;
+            }
+
+            #input-bar {
+                padding: 10px 16px;
+            }
+
+            .line.big {
+                font-size: 15px;
+            }
+
+            .line.german {
+                font-size: 13px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="noise"></div>
+
+    <!-- EASTER EGG OVERLAY -->
+    <div id="egg-overlay" onclick="closeEgg()">
+        <div id="egg-content"></div>
+    </div>
+
+    <!-- BOOT SCREEN -->
+    <div id="boot-screen">
+        <div class="boot-logo">
+            <span>TERMINAL</span>
+            personal / session_log / private
+        </div>
+        <div class="boot-bar-wrap">
+            <div class="boot-bar-bg">
+                <div class="boot-bar-fill"></div>
+            </div>
+            <div class="boot-status">initializing secure channel...</div>
+        </div>
+    </div>
+
+    <div id="screen">
+        <!-- TITLE BAR -->
+        <div id="titlebar">
+            <div class="tb-dot"></div>
+            <div class="tb-dot"></div>
+            <div class="tb-dot"></div>
+            <span class="tb-title">bash — session_log :: private :: encrypted</span>
+            <span class="tb-time" id="tb-clock">--:--:--</span>
+        </div>
+
+        <!-- TERMINAL OUTPUT -->
+        <div id="terminal"></div>
+
+        <!-- INPUT BAR -->
+        <div id="input-bar">
+            <span id="input-prefix">visitor@terminal:~$&nbsp;</span>
+            <input type="text" id="user-input" placeholder="type 'help' or press enter..." autocomplete="off"
+                spellcheck="false">
+        </div>
+    </div>
+
+    <div id="custom-cursor"></div>
+
+    <script>
+        /* ─── CLOCK ─── */
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('tb-clock').textContent =
+                now.toTimeString().slice(0, 8);
+        }
+        setInterval(updateClock, 1000); updateClock();
+
+        /* ─── CUSTOM CURSOR ─── */
+        const cur = document.getElementById('custom-cursor');
+        document.addEventListener('mousemove', e => {
+            cur.style.left = e.clientX + 'px';
+            cur.style.top = e.clientY + 'px';
+        });
+
+        /* ─── TERMINAL ENGINE ─── */
+        const term = document.getElementById('terminal');
+        let printQueue = [];
+        let isPrinting = false;
+        let inputEnabled = false;
+        let storyPhase = 0; // tracks where we are in the story
+
+        // --- Command history for the interactive phase
+        const responses = {
+            'help': [
+                { type: 'blank' },
+                { type: 'output', text: 'available commands:' },
+                { type: 'blank' },
+                { type: 'comment', text: '  start          —  begin reading' },
+                { type: 'comment', text: '  who            —  who sent this?' },
+                { type: 'comment', text: '  why            —  why does this exist?' },
+                { type: 'comment', text: '  continue        —  next part of the message' },
+                { type: 'comment', text: '  clear           —  clear terminal' },
+                { type: 'comment', text: '  exit            —  (this does nothing, sorry)' },
+                { type: 'blank' },
+            ],
+            'who': [
+                { type: 'blank' },
+                { type: 'output', text: 'sender:          [ CLASSIFIED ]' },
+                { type: 'output', text: 'relationship:    someone who remembers' },
+                { type: 'output', text: 'location:        somewhere in the same timezone, for now' },
+                { type: 'blank' },
+            ],
+            'why': [
+                { type: 'blank' },
+                { type: 'output', text: 'because some things are too warm' },
+                { type: 'output', text: 'to be said out loud.' },
+                { type: 'blank' },
+                { type: 'comment', text: '// so they were written here instead.' },
+                { type: 'blank' },
+            ],
+            'exit': [
+                { type: 'blank' },
+                { type: 'error', text: 'permission denied.' },
+                { type: 'comment', text: '// you have to finish reading first.' },
+                { type: 'blank' },
+            ],
+            'clear': '__clear__',
+        };
+
+        // Story chapters
+        const chapters = [
+            // Chapter 0 — boot complete, opening
+            [
+                { type: 'blank' },
+                { type: 'divider', text: '─'.repeat(55) },
+                { type: 'prompt', cmd: 'ls', args: '-la /memories/recent/' },
+                { type: 'delay', ms: 600 },
+                { type: 'output', text: 'total 1' },
+                { type: 'blank' },
+                { type: 'comment', text: '  drwxr-xr-x   one afternoon      coffee + conversation/' },
+                { type: 'comment', text: '  -rw-r--r--   that same day      the feeling after.txt' },
+                { type: 'comment', text: '  -rw-------   locked             something I didn\'t say' },
+                { type: 'blank' },
+                { type: 'prompt', cmd: 'cat', args: '"the feeling after.txt"' },
+                { type: 'delay', ms: 700 },
+                { type: 'blank' },
+                { type: 'poem', text: 'it\'s kind of beautiful how things turn out.' },
+                { type: 'poem', text: 'seeing you again didn\'t feel forced or heavy.' },
+                { type: 'poem', text: 'it just felt... natural.' },
+                { type: 'poem', text: 'like no time had passed at all.' },
+                { type: 'blank' },
+                { type: 'progress', label: 'processing...', width: 160, duration: 1000 },
+                { type: 'blank' },
+                { type: 'comment', text: '// EOF — type "continue" to read the next file' },
+                { type: 'blank' },
+            ],
+            // Chapter 1 — the coffee
+            [
+                { type: 'blank' },
+                { type: 'prompt', cmd: 'open', args: '"something I didn\'t say"', flag: '--decrypt' },
+                { type: 'delay', ms: 800 },
+                { type: 'comment', text: '// decrypting...' },
+                { type: 'progress', label: 'unlocking...', width: 200, duration: 1400 },
+                { type: 'blank' },
+                { type: 'poem', text: 'sometimes it\'s the quiet moments that mean the most.' },
+                { type: 'blank' },
+                { type: 'poem', text: 'i didn\'t expect our simple coffee and conversation' },
+                { type: 'poem', text: 'to feel so unexpectedly meaningful.' },
+                { type: 'blank' },
+                { type: 'poem', text: 'but I\'m really glad it did.' },
+                { type: 'blank' },
+                { type: 'comment', text: '// type "continue"' },
+                { type: 'blank' },
+            ],
+            // Chapter 2 — Germany / distance
+            [
+                { type: 'blank' },
+                { type: 'prompt', cmd: 'ping', args: 'germany.future', flag: '--route' },
+                { type: 'delay', ms: 600 },
+                { type: 'output', text: 'PING germany.future (∞.∞.∞.∞)' },
+                { type: 'blank' },
+                { type: 'output', text: 'calculating distance...' },
+                { type: 'progress', label: '11,764 km', width: 220, duration: 1200 },
+                { type: 'blank' },
+                { type: 'output', text: 'packets sent:      moments shared' },
+                { type: 'output', text: 'packets received:  more than expected' },
+                { type: 'output', text: 'packet loss:       none' },
+                { type: 'blank' },
+                { type: 'comment', text: '// distance detected. writing log...' },
+                { type: 'blank' },
+                { type: 'poem', text: 'now you\'re leaving for germany,' },
+                { type: 'poem', text: 'and things are going to change.' },
+                { type: 'blank' },
+                { type: 'poem', text: 'the distance will be there,' },
+                { type: 'poem', text: 'and it might be a while before we cross paths again like this.' },
+                { type: 'blank' },
+                { type: 'poem', text: 'but I wanted you to know...' },
+                { type: 'blank' },
+                { type: 'german', text: '"ich bin wirklich froh, dass wir uns wieder getroffen haben."' },
+                { type: 'blank' },
+                { type: 'comment', text: '// one more file. type "continue"' },
+                { type: 'blank' },
+            ],
+            // Chapter 3 — the final message
+            [
+                { type: 'blank' },
+                { type: 'prompt', cmd: 'sudo', args: 'read', flag: '--heart --no-filter' },
+                { type: 'delay', ms: 900 },
+                { type: 'comment', text: '// root access granted' },
+                { type: 'comment', text: '// no more encryption' },
+                { type: 'blank' },
+                { type: 'progress', label: 'opening...', width: 240, duration: 1600 },
+                { type: 'blank' },
+                { type: 'divider', text: '─'.repeat(55) },
+                { type: 'blank' },
+                { type: 'special', text: 'thank you for the warmth,' },
+                { type: 'special', text: 'the easy silence,' },
+                { type: 'special', text: 'and the memory.' },
+                { type: 'blank' },
+                { type: 'special', text: 'i\'ll be cheering for you from afar.' },
+                { type: 'blank' },
+                { type: 'special', text: 'wishing you the safest travels' },
+                { type: 'special', text: 'and a beautiful new chapter out there.' },
+                { type: 'blank' },
+                { type: 'divider', text: '─'.repeat(55) },
+                { type: 'blank' },
+                { type: 'big', text: 'please take care of yourself.', glow: true },
+                { type: 'blank' },
+                { type: 'divider', text: '─'.repeat(55) },
+                { type: 'blank' },
+                { type: 'comment', text: '// bis wir uns wiedersehen :)' },
+                { type: 'comment', text: '// from a quiet corner of my heart, — fikri' },
+                { type: 'blank' },
+                { type: 'prompt', cmd: 'logout', args: '' },
+                { type: 'delay', ms: 400 },
+                { type: 'output', text: 'session closed.  connection was: real.' },
+                { type: 'blank' },
+                { type: 'comment', text: '// you can stay here as long as you like.' },
+                { type: 'blank' },
+                { type: '__end__' },
+            ],
+        ];
+
+        /* ─── PRINT ENGINE ─── */
+        function printLine(lineData, cb) {
+            const el = document.createElement('div');
+            el.className = 'line';
+
+            if (lineData.type === 'blank') {
+                el.classList.add('blank');
+            } else if (lineData.type === 'divider') {
+                el.classList.add('divider');
+                el.textContent = lineData.text;
+            } else if (lineData.type === 'progress') {
+                el.classList.add('output');
+                el.innerHTML = `<span class="progress-wrap"><span class="progress-bar" style="width:${lineData.width}px;animation-duration:${(lineData.duration || 1000) / 1000}s"></span> <span class="progress-label">${lineData.label}</span></span>`;
+            } else if (lineData.type === 'prompt') {
+                el.classList.add('prompt');
+                el.innerHTML = `<span class="p-prefix">visitor@terminal:~$ </span><span class="p-cmd">${lineData.cmd}</span> <span class="p-arg">${lineData.args || ''}</span> <span class="p-flag">${lineData.flag || ''}</span>`;
+            } else if (lineData.type === 'output') { el.classList.add('output'); el.textContent = lineData.text; }
+            else if (lineData.type === 'comment') { el.classList.add('comment'); el.textContent = lineData.text; }
+            else if (lineData.type === 'amber') { el.classList.add('amber'); el.textContent = lineData.text; }
+            else if (lineData.type === 'error') { el.classList.add('error'); el.textContent = lineData.text; }
+            else if (lineData.type === 'poem') { el.classList.add('poem'); el.textContent = lineData.text; }
+            else if (lineData.type === 'german') { el.classList.add('german'); el.textContent = lineData.text; }
+            else if (lineData.type === 'special') { el.classList.add('special'); el.textContent = lineData.text; }
+            else if (lineData.type === 'big') {
+                el.classList.add('big');
+                if (lineData.glow) el.classList.add('glow-line');
+                el.textContent = lineData.text;
+            }
+
+            term.appendChild(el);
+            term.scrollTop = term.scrollHeight;
+
+            if (cb) setTimeout(cb, lineData.type === 'progress' ? (lineData.duration || 1000) + 200 : 60);
+        }
+
+        function printLines(lines, onDone) {
+            let i = 0;
+            function next() {
+                if (i >= lines.length) { if (onDone) onDone(); return; }
+                const item = lines[i++];
+
+                if (item.type === 'delay') {
+                    setTimeout(next, item.ms);
+                } else if (item.type === '__end__') {
+                    enableReplayPrompt();
+                } else {
+                    printLine(item, next);
+                }
+            }
+            next();
+        }
+
+        /* ─── BOOT SEQUENCE ─── */
+        function bootSequence() {
+            const bootLines = [
+                { type: 'blank' },
+                { type: 'comment', text: '// TERMINAL v2.4.1 — private build' },
+                { type: 'comment', text: '// ' + new Date().toDateString() },
+                { type: 'blank' },
+                { type: 'output', text: 'loading modules...' },
+                { type: 'progress', label: 'ok', width: 180, duration: 900 },
+                { type: 'output', text: 'establishing connection...' },
+                { type: 'progress', label: 'connected', width: 140, duration: 700 },
+                { type: 'output', text: 'verifying recipient...' },
+                { type: 'progress', label: 'verified', width: 160, duration: 800 },
+                { type: 'blank' },
+                { type: 'output', text: 'welcome.' },
+                { type: 'blank' },
+                { type: 'comment', text: '// there\'s a message here for you.' },
+                { type: 'comment', text: '// type "start" to begin, or "help" for options.' },
+                { type: 'blank' },
+            ];
+
+            printLines(bootLines, () => {
+                enableInput();
+            });
+        }
+
+        /* ─── INPUT HANDLING ─── */
+        function enableInput() {
+            inputEnabled = true;
+            const bar = document.getElementById('input-bar');
+            bar.classList.add('visible');
+            setTimeout(() => document.getElementById('user-input').focus(), 100);
+        }
+
+        function disableInput() {
+            inputEnabled = false;
+            document.getElementById('input-bar').classList.remove('visible');
+        }
+
+        document.getElementById('user-input').addEventListener('keydown', function (e) {
+            if (e.key !== 'Enter') return;
+            const val = this.value.trim().toLowerCase();
+            this.value = '';
+            if (!val) return;
+            handleCommand(val);
+        });
+
+        // tap anywhere on mobile focuses input
+        document.getElementById('terminal').addEventListener('click', () => {
+            if (inputEnabled) document.getElementById('user-input').focus();
+        });
+
+        function handleCommand(cmd) {
+            // Echo the command
+            const echo = document.createElement('div');
+            echo.className = 'line prompt';
+            echo.innerHTML = `<span class="p-prefix">visitor@terminal:~$ </span><span class="p-cmd">${escapeHtml(cmd)}</span>`;
+            term.appendChild(echo);
+            term.scrollTop = term.scrollHeight;
+
+            if (cmd === 'clear') {
+                setTimeout(() => { term.innerHTML = ''; }, 200);
+                return;
+            }
+
+            if (cmd === 'start' || cmd === 'continue') {
+                if (storyPhase < chapters.length) {
+                    disableInput();
+                    printLines(chapters[storyPhase], () => {
+                        storyPhase++;
+                        if (storyPhase < chapters.length) enableInput();
+                    });
+                } else {
+                    printLines([
+                        { type: 'blank' },
+                        { type: 'comment', text: '// you\'ve reached the end.' },
+                        { type: 'comment', text: '// type "replay" to read again from the start.' },
+                        { type: 'blank' },
+                    ]);
+                }
+                return;
+            }
+
+            if (cmd === 'replay') {
+                storyPhase = 0;
+                term.innerHTML = '';
+                bootSequence();
+                return;
+            }
+
+            const eggTriggers = ['hey', 'hei', 'hi', 'hello', 'halo', 'hii'];
+            if (eggTriggers.includes(cmd)) {
+                triggerEasterEgg();
+                return;
+            }
+
+            if (responses[cmd]) {
+                printLines(responses[cmd]);
+            } else {
+                printLines([
+                    { type: 'blank' },
+                    { type: 'error', text: `command not found: ${cmd}` },
+                    { type: 'comment', text: '// try "help"' },
+                    { type: 'blank' },
+                ]);
+            }
+        }
+
+        function enableReplayPrompt() {
+            printLines([
+                { type: 'comment', text: '// type "replay" to read again.' },
+                { type: 'blank' },
+            ], () => { enableInput(); });
+        }
+
+        /* ─── EASTER EGG ─── */
+        function triggerEasterEgg() {
+            // 1. Glitch the screen first
+            const screen = document.getElementById('screen');
+            screen.classList.add('glitch');
+            setTimeout(() => screen.classList.remove('glitch'), 500);
+
+            // 2. After glitch, show overlay
+            setTimeout(() => {
+                const overlay = document.getElementById('egg-overlay');
+                const content = document.getElementById('egg-content');
+                content.innerHTML = '';
+                overlay.classList.add('show');
+
+                const lines = [
+                    { cls: 'egg-comment', text: '// [UNENCRYPTED — PERSONAL LOG]', delay: 0 },
+                    { cls: 'egg-divider', text: '─────────────────────────────────────', delay: 300 },
+                    { cls: 'egg-amber', text: 'accessing: feelings.log', delay: 600 },
+                    { cls: 'egg-comment', text: '// warning: unfiltered. proceed.', delay: 1000 },
+                    { cls: 'egg-divider', text: '─────────────────────────────────────', delay: 1400 },
+                    { cls: 'egg-warm', text: '', delay: 1900 },
+                    { cls: 'egg-warm', text: 'i like the way you laugh', delay: 2200 },
+                    { cls: 'egg-warm', text: 'before the punchline even lands.', delay: 2800 },
+                    { cls: 'egg-warm', text: '', delay: 3300 },
+                    { cls: 'egg-warm', text: 'i like that you make silence', delay: 3600 },
+                    { cls: 'egg-warm', text: 'feel like something, not nothing.', delay: 4200 },
+                    { cls: 'egg-warm', text: '', delay: 4700 },
+                    { cls: 'egg-warm', text: 'i like that afternoon more than', delay: 5000 },
+                    { cls: 'egg-warm', text: 'i probably let on.', delay: 5600 },
+                    { cls: 'egg-warm', text: '', delay: 6100 },
+                    { cls: 'egg-divider', text: '─────────────────────────────────────', delay: 6600 },
+                    { cls: 'egg-big', text: 'i just really like you.', delay: 7200 },
+                    { cls: 'egg-divider', text: '─────────────────────────────────────', delay: 8000 },
+                    { cls: 'egg-warm', text: '', delay: 8400 },
+                    { cls: 'egg-warm', text: 'there. it\'s in the log now.', delay: 8700 },
+                    { cls: 'egg-warm', text: 'can\'t be deleted.', delay: 9300 },
+                    { cls: 'egg-comment', text: '// viel glück da draußen, du.', delay: 10000 },
+                    { cls: 'egg-small', text: '[ tap anywhere to close ]', delay: 11000 },
+                ];
+
+                lines.forEach(({ cls, text, delay }) => {
+                    setTimeout(() => {
+                        const el = document.createElement('div');
+                        el.className = `egg-line ${cls}`;
+                        el.textContent = text;
+                        content.appendChild(el);
+                        content.scrollTop = content.scrollHeight;
+                    }, delay);
+                });
+            }, 400);
+        }
+
+        function closeEgg() {
+            const overlay = document.getElementById('egg-overlay');
+            overlay.classList.remove('show');
+        }
+
+        function escapeHtml(s) {
+            return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        /* ─── INIT ─── */
+        // Boot screen
+        setTimeout(() => {
+            document.getElementById('boot-screen').classList.add('hide');
+            setTimeout(() => {
+                document.getElementById('boot-screen').style.display = 'none';
+                bootSequence();
+            }, 1000);
+        }, 2400);
+    </script>
+</body>
+
+</html>
